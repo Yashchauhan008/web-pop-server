@@ -9,6 +9,10 @@ import RedisClient from './shared/configs/redis.js';
 import env from './shared/configs/env.js';
 
 
+import apiRoutes from './routes/index.js';
+import { initScheduler } from './modules/scheduler/scheduler.service.js';
+import { initWorker } from './workers/notification.worker.js';
+
 const app = express();
 
 app.use(morgan(':method :url Status : :status, Time taken: :response-time ms', {
@@ -35,20 +39,18 @@ app.get('/', (req, res) => {
 });
 
 app.get('/ping', (req, res) => {
-    res.status(200).send('pont');
+    res.status(200).send('pong');
 });
 
-app.use('/', appRoute);
-
+// API Routes
+app.use('/api/v1', apiRoutes);
 
 // Error handler
 app.use(errorHandler);
 
-RedisClient.connect().then(() => {
-    Logger.info('Redis connected successfully ✅');
-}).catch((error) => {
-    Logger.error('Redis connection error', error);
-});
-
+// Initialize Services
+initScheduler();
+initWorker();
 
 export default app;
+
