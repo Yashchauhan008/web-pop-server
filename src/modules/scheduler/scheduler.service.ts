@@ -9,10 +9,16 @@ export const initScheduler = () => {
     try {
       const now = dayjs().toISOString();
       const dueReminders = await db.queryAll(
-        `SELECT * FROM reminders 
-        WHERE is_active = true 
-        AND is_paused = false 
-        AND next_trigger_at <= $1`,
+        `SELECT r.*,
+        COALESCE(
+          f.url,
+          CASE WHEN r.icon LIKE 'http%' THEN r.icon ELSE NULL END
+        ) as icon_url
+        FROM reminders r
+        LEFT JOIN files f ON f.id::text = r.icon
+        WHERE r.is_active = true 
+        AND r.is_paused = false 
+        AND r.next_trigger_at <= $1`,
         [now]
       );
 
@@ -22,6 +28,7 @@ export const initScheduler = () => {
           userId: reminder.user_id,
           title: reminder.title,
           message: reminder.message,
+          icon: reminder.icon_url,
         });
       }
     } catch (error) {

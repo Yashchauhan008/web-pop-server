@@ -8,7 +8,7 @@ export const initWorker = () => {
   const worker = new Worker(
     'reminder-notifications',
     async (job: Job) => {
-      const { reminderId, userId, title, message } = job.data;
+      const { reminderId, userId, title, message, icon } = job.data;
 
       // 1. Get user's device tokens
       const devices = await db.queryAll('SELECT fcm_token FROM devices WHERE user_id = $1', [userId]);
@@ -21,6 +21,7 @@ export const initWorker = () => {
             tokens,
             notification: { title, body: message || '' },
             webpush: {
+              notification: icon ? { icon, image: icon } : undefined,
               fcmOptions: { link: '/' },
             },
           });

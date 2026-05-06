@@ -14,6 +14,10 @@ export async function Controller(
     if (!file) return res.status(STATUS_CODES.BAD_REQUEST).json({ message: 'File is required' });
 
     const newFile = await registerNewFile(db, { filePath: file.path });
+    const fileUrl = `/api/v1/files/${newFile.key}`;
 
-    return res.status(STATUS_CODES.OK).json(newFile);
+    return res.status(STATUS_CODES.OK).json({
+        ...newFile,
+        url: fileUrl,
+    });
 }

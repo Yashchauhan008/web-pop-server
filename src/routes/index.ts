@@ -7,6 +7,8 @@ import * as remindersController from '@/modules/reminders/reminders.controller.j
 import * as tagsController from '@/modules/reminders/tags.controller.js';
 import * as devicesController from '@/modules/devices/devices.controller.js';
 import * as notificationsController from '@/modules/notifications/notifications.controller.js';
+import fileUpload from '@/shared/middlewares/multer/file-upload.js';
+import { Controller as uploadFile } from '@/modules/file/controllers/upload-file.js';
 
 const router = express.Router();
 
@@ -34,5 +36,8 @@ router.delete('/devices/:id', authMiddleware, withDatabase(devicesController.unr
 // Notifications
 router.get('/notifications/history', authMiddleware, withDatabase(notificationsController.getNotificationHistory));
 router.post('/reminders/:id/test', authMiddleware, withDatabase(notificationsController.testReminderNotification));
+
+// Files
+router.post('/files/upload', authMiddleware, fileUpload.single('file'), withDatabase(uploadFile));
 
 export default router;

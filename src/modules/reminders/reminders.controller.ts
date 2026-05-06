@@ -7,6 +7,7 @@ export const reminderSchema = {
   body: z.object({
     title: z.string().min(1),
     message: z.string().optional(),
+    iconFileId: z.string().uuid().optional(),
     startAt: z.string().datetime(),
     endAt: z.string().datetime().optional(),
     recurrenceType: z.enum(['once', 'secondly', 'minutely', 'hourly', 'daily', 'weekly', 'monthly', 'custom']),
@@ -31,12 +32,26 @@ export const createReminder = async (req: Request, res: Response, next: NextFunc
   try {
     const reminder = await db.queryOne(
       `INSERT INTO reminders 
-      (title, message, start_at, end_at, recurrence_type, recurrence_interval, timezone, next_trigger_at, user_id) 
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
-      RETURNING id, title, message, start_at as "startAt", end_at as "endAt", 
-      recurrence_type as "recurrenceType", recurrence_interval as "recurrenceInterval", 
-      timezone, next_trigger_at as "nextTriggerAt", is_active as "isActive", is_paused as "isPaused"`,
-      [data.title, data.message, data.startAt, data.endAt, data.recurrenceType, data.recurrenceInterval, data.timezone, nextTriggerAt, user.id]
+      (title, message, icon, start_at, end_at, recurrence_type, recurrence_interval, timezone, next_trigger_at, user_id) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+      RETURNING id`,
+      [data.title, data.message, data.iconFileId, data.startAt, data.endAt, data.recurrenceType, data.recurrenceInterval, data.timezone, nextTriggerAt, user.id]
+    );
+
+    const createdReminder = await db.queryOne(
+      `SELECT r.id, r.title, r.message, r.icon as "iconFileId",
+      COALESCE(
+        f.url,
+        CASE WHEN r.icon LIKE 'http%' THEN r.icon ELSE NULL END
+      ) as "iconUrl",
+      r.start_at as "startAt", r.end_at as "endAt", 
+      r.recurrence_type as "recurrenceType", r.recurrence_interval as "recurrenceInterval", 
+      r.timezone, r.next_trigger_at as "nextTriggerAt", 
+      r.is_active as "isActive", r.is_paused as "isPaused"
+      FROM reminders r
+      LEFT JOIN files f ON f.id::text = r.icon
+      WHERE r.id = $1 AND r.user_id = $2`,
+      [reminder.id, user.id]
     );
 
     if (data.tagIds?.length) {
@@ -46,7 +61,7 @@ export const createReminder = async (req: Request, res: Response, next: NextFunc
     }
 
     await db.commit();
-    res.status(201).json({ success: true, data: reminder });
+    res.status(201).json({ success: true, data: createdReminder });
   } catch (error) {
     await db.rollback();
     next(error);
@@ -56,13 +71,18 @@ export const createReminder = async (req: Request, res: Response, next: NextFunc
 export const getReminders = async (req: Request, res: Response, next: NextFunction, db: DatabaseClient) => {
   const user = (req as any).user;
   const reminders = await db.queryAll(
-    `SELECT r.id, r.title, r.message, 
+    `SELECT r.id, r.title, r.message, r.icon as "iconFileId",
+    COALESCE(
+      MAX(f.url),
+      CASE WHEN r.icon LIKE 'http%' THEN r.icon ELSE NULL END
+    ) as "iconUrl",
     r.start_at as "startAt", r.end_at as "endAt", 
     r.recurrence_type as "recurrenceType", r.recurrence_interval as "recurrenceInterval", 
     r.timezone, r.next_trigger_at as "nextTriggerAt", 
     r.is_active as "isActive", r.is_paused as "isPaused",
     COALESCE(json_agg(t.*) FILTER (WHERE t.id IS NOT NULL), '[]') as tags
     FROM reminders r
+    LEFT JOIN files f ON f.id::text = r.icon
     LEFT JOIN reminder_tags rt ON r.id = rt.reminder_id
     LEFT JOIN tags t ON rt.tag_id = t.id
     WHERE r.user_id = $1
@@ -96,22 +116,37 @@ export const updateReminder = async (req: Request, res: Response, next: NextFunc
 
   await db.begin();
   try {
-    const updated = await db.queryOne(
+    const updatedRow = await db.queryOne(
       `UPDATE reminders SET 
       title = COALESCE($1, title),
       message = COALESCE($2, message),
-      start_at = COALESCE($3, start_at),
-      end_at = COALESCE($4, end_at),
-      recurrence_type = COALESCE($5, recurrence_type),
-      recurrence_interval = COALESCE($6, recurrence_interval),
-      timezone = COALESCE($7, timezone),
-      next_trigger_at = $8,
+      icon = COALESCE($3, icon),
+      start_at = COALESCE($4, start_at),
+      end_at = COALESCE($5, end_at),
+      recurrence_type = COALESCE($6, recurrence_type),
+      recurrence_interval = COALESCE($7, recurrence_interval),
+      timezone = COALESCE($8, timezone),
+      next_trigger_at = $9,
       updated_at = NOW()
-      WHERE id = $9 AND user_id = $10
-      RETURNING id, title, message, start_at as "startAt", end_at as "endAt", 
-      recurrence_type as "recurrenceType", recurrence_interval as "recurrenceInterval", 
-      timezone, next_trigger_at as "nextTriggerAt", is_active as "isActive", is_paused as "isPaused"`,
-      [data.title, data.message, data.startAt, data.endAt, data.recurrenceType, data.recurrenceInterval, data.timezone, nextTriggerAt, id, user.id]
+      WHERE id = $10 AND user_id = $11
+      RETURNING id`,
+      [data.title, data.message, data.iconFileId, data.startAt, data.endAt, data.recurrenceType, data.recurrenceInterval, data.timezone, nextTriggerAt, id, user.id]
+    );
+
+    const updated = await db.queryOne(
+      `SELECT r.id, r.title, r.message, r.icon as "iconFileId",
+      COALESCE(
+        f.url,
+        CASE WHEN r.icon LIKE 'http%' THEN r.icon ELSE NULL END
+      ) as "iconUrl",
+      r.start_at as "startAt", r.end_at as "endAt", 
+      r.recurrence_type as "recurrenceType", r.recurrence_interval as "recurrenceInterval", 
+      r.timezone, r.next_trigger_at as "nextTriggerAt", 
+      r.is_active as "isActive", r.is_paused as "isPaused"
+      FROM reminders r
+      LEFT JOIN files f ON f.id::text = r.icon
+      WHERE r.id = $1 AND r.user_id = $2`,
+      [updatedRow.id, user.id]
     );
 
     if (data.tagIds) {

@@ -49,6 +49,7 @@ app.get('/ping', (req, res) => {
 });
 
 // API Routes
+app.use('/', appRoute);
 app.use('/api/v1', apiRoutes);
 
 // Error handler

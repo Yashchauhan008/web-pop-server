@@ -54,7 +54,17 @@ export const testReminderNotification = async (req: Request, res: Response, next
 
   console.log('Testing reminder:', id, 'for user:', user?.id);
 
-  const reminder = await db.queryOne('SELECT * FROM reminders WHERE id = $1 AND user_id = $2', [id, user.id]);
+  const reminder = await db.queryOne(
+    `SELECT r.*,
+    COALESCE(
+      f.url,
+      CASE WHEN r.icon LIKE 'http%' THEN r.icon ELSE NULL END
+    ) as icon_url
+    FROM reminders r
+    LEFT JOIN files f ON f.id::text = r.icon
+    WHERE r.id = $1 AND r.user_id = $2`,
+    [id, user.id]
+  );
   if (!reminder) return res.status(404).json({ success: false, message: 'Reminder not found' });
 
   const devices = await db.queryAll('SELECT fcm_token FROM devices WHERE user_id = $1', [user.id]);
@@ -68,6 +78,7 @@ export const testReminderNotification = async (req: Request, res: Response, next
     },
     tokens,
     webpush: {
+      notification: reminder.icon_url ? { icon: reminder.icon_url, image: reminder.icon_url } : undefined,
       fcmOptions: { link: '/' },
     },
   };
