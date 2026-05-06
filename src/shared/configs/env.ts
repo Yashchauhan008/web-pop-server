@@ -33,6 +33,11 @@ const envSchema = z.object({
     // Redis
     REDIS_URL: z.string().url().default('redis://localhost:6379'),
 
+    // AWS
+    AWS_REGION: z.string().optional(),
+    AWS_ACCESS_KEY_ID: z.string().optional(),
+    AWS_SECRET_ACCESS_KEY: z.string().optional(),
+
     // SMTP
     SMTP_HOST: z.string(),
     SMTP_PORT: z.coerce.number().int().positive().max(65535),

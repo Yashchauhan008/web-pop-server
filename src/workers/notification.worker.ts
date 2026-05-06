@@ -44,7 +44,9 @@ export const initWorker = () => {
             });
 
             if (tokensToRemove.length > 0) {
-              await db.query('DELETE FROM devices WHERE fcm_token = ANY($1)', [tokensToRemove]);
+              for (const token of tokensToRemove) {
+                await db.query('DELETE FROM devices WHERE fcm_token = $1', [token]);
+              }
             }
           }
         } catch (error) {

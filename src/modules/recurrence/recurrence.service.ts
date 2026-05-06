@@ -1,8 +1,8 @@
 import pkg from 'rrule';
 const { RRule } = pkg;
 import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
-import timezonePlugin from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc.js';
+import timezonePlugin from 'dayjs/plugin/timezone.js';
 
 dayjs.extend(utc);
 dayjs.extend(timezonePlugin);
@@ -16,8 +16,8 @@ interface RecurrenceParams {
 
 export const calculateNextTrigger = (params: RecurrenceParams): Date | null => {
   const { startAt, recurrenceType, recurrenceInterval, timezone } = params;
-  const now = dayjs().tz(timezone);
-  const start = dayjs(startAt).tz(timezone);
+  const now = dayjs.tz(dayjs(), timezone);
+  const start = dayjs.tz(startAt, timezone);
 
   if (recurrenceType === 'once') {
     return start.isAfter(now) ? start.toDate() : null;

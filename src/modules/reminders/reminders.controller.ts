@@ -74,9 +74,12 @@ export const getReminders = async (req: Request, res: Response, next: NextFuncti
 };
 
 export const updateReminder = async (req: Request, res: Response, next: NextFunction, db: DatabaseClient) => {
-  const { id } = req.params;
+  const idParam = req.params.id;
+  const id = Array.isArray(idParam) ? idParam[0] : idParam;
   const data = req.body;
   const user = (req as any).user;
+
+  if (!id) return res.status(400).json({ success: false, message: 'Invalid reminder id' });
 
   const existing = await db.queryOne('SELECT * FROM reminders WHERE id = $1 AND user_id = $2', [id, user.id]);
   if (!existing) return res.status(404).json({ success: false, message: 'Not found' });
@@ -127,16 +130,20 @@ export const updateReminder = async (req: Request, res: Response, next: NextFunc
 };
 
 export const deleteReminder = async (req: Request, res: Response, next: NextFunction, db: DatabaseClient) => {
-  const { id } = req.params;
+  const idParam = req.params.id;
+  const id = Array.isArray(idParam) ? idParam[0] : idParam;
   const user = (req as any).user;
+  if (!id) return res.status(400).json({ success: false, message: 'Invalid reminder id' });
   await db.query('DELETE FROM reminders WHERE id = $1 AND user_id = $2', [id, user.id]);
   res.json({ success: true, message: 'Deleted' });
 };
 
 export const toggleReminderStatus = async (req: Request, res: Response, next: NextFunction, db: DatabaseClient) => {
-  const { id } = req.params;
+  const idParam = req.params.id;
+  const id = Array.isArray(idParam) ? idParam[0] : idParam;
   const { isActive, isPaused } = req.body;
   const user = (req as any).user;
+  if (!id) return res.status(400).json({ success: false, message: 'Invalid reminder id' });
   
   const updated = await db.queryOne(
     'UPDATE reminders SET is_active = COALESCE($1, is_active), is_paused = COALESCE($2, is_paused) WHERE id = $3 AND user_id = $4 RETURNING id, is_active as "isActive", is_paused as "isPaused"',

@@ -23,6 +23,12 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Keep popup auth flows (e.g., Google Sign-In) working with window.postMessage.
+app.use('/api/v1/auth', (_req, res, next) => {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+    next();
+});
+
 // Health check route
 const serverStartTimeStamp = new Date().toISOString();
 
