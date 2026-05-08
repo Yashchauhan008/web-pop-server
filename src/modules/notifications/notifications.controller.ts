@@ -4,15 +4,34 @@ import admin from '@/lib/firebase.js';
 
 export const getNotificationHistory = async (req: Request, res: Response, next: NextFunction, db: DatabaseClient) => {
   const user = (req as any).user;
-  const history = await db.queryAll(
-    `SELECT nl.*, r.title as reminder_title 
+  const limit = parseInt(req.query.limit as string) || 20;
+  const offset = parseInt(req.query.offset as string) || 0;
+  const search = req.query.search as string;
+
+  let query = `
+    SELECT nl.*, r.title as reminder_title 
     FROM notification_logs nl 
     LEFT JOIN reminders r ON nl.reminder_id = r.id 
     WHERE nl.user_id = $1 
-    ORDER BY nl.sent_at DESC`,
-    [user.id]
-  );
+  `;
+  const params: any[] = [user.id];
+
+  if (search) {
+    query += ` AND (r.title ILIKE $2 OR nl.error ILIKE $2 OR 'System Alert' ILIKE $2) `;
+    params.push(`%${search}%`);
+  }
+
+  query += ` ORDER BY nl.sent_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+  params.push(limit, offset);
+
+  const history = await db.queryAll(query, params);
   res.json({ success: true, data: history });
+};
+
+export const clearNotificationHistory = async (req: Request, res: Response, next: NextFunction, db: DatabaseClient) => {
+  const user = (req as any).user;
+  await db.query('DELETE FROM notification_logs WHERE user_id = $1', [user.id]);
+  res.json({ success: true, message: 'History cleared' });
 };
 
 export const testNotification = async (req: Request, res: Response, next: NextFunction, db: DatabaseClient) => {
@@ -51,8 +70,6 @@ export const testNotification = async (req: Request, res: Response, next: NextFu
 export const testReminderNotification = async (req: Request, res: Response, next: NextFunction, db: DatabaseClient) => {
   const { id } = req.params;
   const user = (req as any).user;
-
-  console.log('Testing reminder:', id, 'for user:', user?.id);
 
   const reminder = await db.queryOne(
     `SELECT r.*,
@@ -107,4 +124,10 @@ export const testReminderNotification = async (req: Request, res: Response, next
     );
     next(error);
   }
+};
+
+export const purgeQueue = async (req: Request, res: Response, next: NextFunction, db: DatabaseClient) => {
+  const { reminderQueue } = await import('@/queues/reminder.queue.js');
+  await reminderQueue.drain(true); // Drains all waiting/delayed jobs
+  res.json({ success: true, message: 'Notification queue purged' });
 };

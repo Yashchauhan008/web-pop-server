@@ -211,7 +211,7 @@ export const toggleReminderStatus = async (req: Request, res: Response, next: Ne
   const user = (req as any).user;
   await db.query(
     'UPDATE reminders SET is_paused = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3',
-    [isPaused, id, user.id]
+    [isPaused, id as string, user.id]
   );
   res.json({ success: true, message: 'Status updated' });
 };
@@ -225,7 +225,7 @@ export const snoozeReminder = async (req: Request, res: Response, next: NextFunc
   
   await db.query(
     'UPDATE reminders SET next_trigger_at = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3',
-    [nextTrigger.toISOString(), id, user.id]
+    [nextTrigger.toISOString(), id as string, user.id]
   );
   
   res.json({ success: true, message: `Snoozed for ${minutes} minutes`, data: { nextTrigger } });
@@ -239,15 +239,15 @@ export const completeReminder = async (req: Request, res: Response, next: NextFu
   if (!reminder) return res.status(404).json({ success: false, message: 'Not found' });
   
   if (reminder.recurrence_type === 'once') {
-    await db.query('UPDATE reminders SET is_active = false, updated_at = NOW() WHERE id = $1', [id]);
+    await db.query('UPDATE reminders SET is_active = false, updated_at = NOW() WHERE id = $1', [id as string]);
   } else {
-    const nextTriggerAt = RemindersService.calculateNextTrigger({
+    const nextTriggerAt = calculateNextTrigger({
       startAt: new Date(reminder.start_at),
       recurrenceType: reminder.recurrence_type,
       recurrenceInterval: reminder.recurrence_interval,
       timezone: reminder.timezone
     });
-    await db.query('UPDATE reminders SET next_trigger_at = $1, updated_at = NOW() WHERE id = $2', [nextTriggerAt, id]);
+    await db.query('UPDATE reminders SET next_trigger_at = $1, updated_at = NOW() WHERE id = $2', [nextTriggerAt, id as string]);
   }
   
   res.json({ success: true, message: 'Marked as completed' });

@@ -53,6 +53,8 @@ router.delete('/devices/:id', authMiddleware, withDatabase(devicesController.unr
 
 // Notifications
 router.get('/notifications/history', authMiddleware, withDatabase(notificationsController.getNotificationHistory));
+router.delete('/notifications/history/clear', authMiddleware, withDatabase(notificationsController.clearNotificationHistory));
+router.delete('/notifications/queue/purge', authMiddleware, withDatabase(notificationsController.purgeQueue));
 router.post('/notifications/test', authMiddleware, withDatabase(notificationsController.testNotification));
 router.post('/reminders/:id/test', authMiddleware, withDatabase(notificationsController.testReminderNotification));
 

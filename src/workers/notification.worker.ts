@@ -59,21 +59,7 @@ export const initWorker = () => {
         }
       }
 
-      // 5. Calculate and update next trigger time
-      const reminder = await db.queryOne('SELECT * FROM reminders WHERE id = $1', [reminderId]);
-      if (reminder) {
-        const nextTriggerAt = calculateNextTrigger({
-          startAt: new Date(reminder.start_at),
-          recurrenceType: reminder.recurrence_type,
-          recurrenceInterval: reminder.recurrence_interval,
-          timezone: reminder.timezone,
-        });
 
-        await db.query(
-          'UPDATE reminders SET next_trigger_at = $1, updated_at = NOW() WHERE id = $2',
-          [nextTriggerAt, reminderId]
-        );
-      }
     },
     { connection: redis }
   );
