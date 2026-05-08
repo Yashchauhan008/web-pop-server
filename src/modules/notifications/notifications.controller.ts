@@ -78,8 +78,18 @@ export const testReminderNotification = async (req: Request, res: Response, next
     },
     tokens,
     webpush: {
-      notification: reminder.icon_url ? { icon: reminder.icon_url, image: reminder.icon_url } : undefined,
-      fcmOptions: { link: '/' },
+      notification: {
+        icon: reminder.icon_url || undefined,
+        image: reminder.icon_url || undefined,
+        actions: [
+          { action: 'complete', title: '✅ Mark Done' },
+          { action: 'snooze', title: '⏰ Snooze 15m' }
+        ],
+        data: {
+          reminderId: id
+        }
+      },
+      fcmOptions: { link: `/app/reminders/${id}` },
     },
   };
 

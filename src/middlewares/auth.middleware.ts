@@ -32,13 +32,19 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     const { sub, email, name, picture } = payload;
     
     // Sync with local users table
-    // We still use 'firebase_uid' column but it now stores the Google 'sub'
     let user = await db.queryOne('SELECT * FROM users WHERE firebase_uid = $1', [sub]);
 
     if (!user) {
+      // Create new user
       user = await db.queryOne(
         'INSERT INTO users (name, email, firebase_uid, avatar_url) VALUES ($1, $2, $3, $4) RETURNING *',
         [name || 'User', email, sub, picture]
+      );
+    } else if (user.name !== (name || 'User') || user.avatar_url !== picture || user.email !== email) {
+      // Update existing user if details changed
+      user = await db.queryOne(
+        'UPDATE users SET name = $1, avatar_url = $2, email = $3, updated_at = NOW() WHERE firebase_uid = $4 RETURNING *',
+        [name || 'User', picture, email, sub]
       );
     }
 

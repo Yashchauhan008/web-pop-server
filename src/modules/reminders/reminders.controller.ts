@@ -6,8 +6,8 @@ import { z } from 'zod';
 export const reminderSchema = {
   body: z.object({
     title: z.string().min(1),
-    message: z.string().optional(),
-    iconFileId: z.string().uuid().optional(),
+    message: z.string().optional().nullable(),
+    iconFileId: z.string().uuid().optional().nullable(),
     startAt: z.string().datetime(),
     endAt: z.string().datetime().optional(),
     recurrenceType: z.enum(['once', 'secondly', 'minutely', 'hourly', 'daily', 'weekly', 'monthly', 'custom']),
@@ -93,6 +93,20 @@ export const getReminders = async (req: Request, res: Response, next: NextFuncti
   res.json({ success: true, data: reminders });
 };
 
+export const updateReminderSchema = {
+  body: z.object({
+    title: z.string().min(1).optional(),
+    message: z.string().optional().nullable(),
+    iconFileId: z.string().uuid().optional().nullable(),
+    startAt: z.string().datetime().optional(),
+    endAt: z.string().datetime().optional().nullable(),
+    recurrenceType: z.enum(['once', 'secondly', 'minutely', 'hourly', 'daily', 'weekly', 'monthly', 'custom']).optional(),
+    recurrenceInterval: z.number().optional(),
+    timezone: z.string().optional(),
+    tagIds: z.array(z.string()).optional(),
+  })
+};
+
 export const updateReminder = async (req: Request, res: Response, next: NextFunction, db: DatabaseClient) => {
   const idParam = req.params.id;
   const id = Array.isArray(idParam) ? idParam[0] : idParam;
@@ -104,12 +118,18 @@ export const updateReminder = async (req: Request, res: Response, next: NextFunc
   const existing = await db.queryOne('SELECT * FROM reminders WHERE id = $1 AND user_id = $2', [id, user.id]);
   if (!existing) return res.status(404).json({ success: false, message: 'Not found' });
 
+  // Always recalculate nextTriggerAt if any scheduling field changed, 
+  // or if the current nextTriggerAt is in the past/null and we are updating the reminder.
+  const hasScheduleChange = data.startAt || data.recurrenceType || data.recurrenceInterval || data.timezone;
+  const isExpired = !existing.next_trigger_at || new Date(existing.next_trigger_at) < new Date();
+  
   let nextTriggerAt = existing.next_trigger_at;
-  if (data.startAt || data.recurrenceType || data.recurrenceInterval || data.timezone) {
+  
+  if (hasScheduleChange || isExpired) {
     nextTriggerAt = calculateNextTrigger({
       startAt: new Date(data.startAt || existing.start_at),
       recurrenceType: data.recurrenceType || existing.recurrence_type,
-      recurrenceInterval: data.recurrenceInterval || existing.recurrence_interval,
+      recurrenceInterval: data.recurrenceInterval !== undefined ? data.recurrenceInterval : existing.recurrence_interval,
       timezone: data.timezone || existing.timezone,
     });
   }
@@ -118,19 +138,31 @@ export const updateReminder = async (req: Request, res: Response, next: NextFunc
   try {
     const updatedRow = await db.queryOne(
       `UPDATE reminders SET 
-      title = COALESCE($1, title),
-      message = COALESCE($2, message),
-      icon = COALESCE($3, icon),
-      start_at = COALESCE($4, start_at),
-      end_at = COALESCE($5, end_at),
-      recurrence_type = COALESCE($6, recurrence_type),
-      recurrence_interval = COALESCE($7, recurrence_interval),
-      timezone = COALESCE($8, timezone),
+      title = $1,
+      message = $2,
+      icon = $3,
+      start_at = $4,
+      end_at = $5,
+      recurrence_type = $6,
+      recurrence_interval = $7,
+      timezone = $8,
       next_trigger_at = $9,
       updated_at = NOW()
       WHERE id = $10 AND user_id = $11
       RETURNING id`,
-      [data.title, data.message, data.iconFileId, data.startAt, data.endAt, data.recurrenceType, data.recurrenceInterval, data.timezone, nextTriggerAt, id, user.id]
+      [
+        data.title !== undefined ? data.title : existing.title,
+        data.message !== undefined ? data.message : existing.message,
+        data.iconFileId !== undefined ? data.iconFileId : existing.icon,
+        data.startAt !== undefined ? data.startAt : existing.start_at,
+        data.endAt !== undefined ? data.endAt : existing.end_at,
+        data.recurrenceType !== undefined ? data.recurrenceType : existing.recurrence_type,
+        data.recurrenceInterval !== undefined ? data.recurrenceInterval : existing.recurrence_interval,
+        data.timezone !== undefined ? data.timezone : existing.timezone,
+        nextTriggerAt,
+        id,
+        user.id
+      ]
     );
 
     const updated = await db.queryOne(
@@ -174,16 +206,49 @@ export const deleteReminder = async (req: Request, res: Response, next: NextFunc
 };
 
 export const toggleReminderStatus = async (req: Request, res: Response, next: NextFunction, db: DatabaseClient) => {
-  const idParam = req.params.id;
-  const id = Array.isArray(idParam) ? idParam[0] : idParam;
-  const { isActive, isPaused } = req.body;
+  const { id } = req.params;
+  const { isPaused } = req.body;
   const user = (req as any).user;
-  if (!id) return res.status(400).json({ success: false, message: 'Invalid reminder id' });
+  await db.query(
+    'UPDATE reminders SET is_paused = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3',
+    [isPaused, id, user.id]
+  );
+  res.json({ success: true, message: 'Status updated' });
+};
+
+export const snoozeReminder = async (req: Request, res: Response, next: NextFunction, db: DatabaseClient) => {
+  const { id } = req.params;
+  const { minutes = 15 } = req.body;
+  const user = (req as any).user;
   
-  const updated = await db.queryOne(
-    'UPDATE reminders SET is_active = COALESCE($1, is_active), is_paused = COALESCE($2, is_paused) WHERE id = $3 AND user_id = $4 RETURNING id, is_active as "isActive", is_paused as "isPaused"',
-    [isActive, isPaused, id, user.id]
+  const nextTrigger = new Date(Date.now() + minutes * 60000);
+  
+  await db.query(
+    'UPDATE reminders SET next_trigger_at = $1, updated_at = NOW() WHERE id = $2 AND user_id = $3',
+    [nextTrigger.toISOString(), id, user.id]
   );
   
-  res.json({ success: true, data: updated });
+  res.json({ success: true, message: `Snoozed for ${minutes} minutes`, data: { nextTrigger } });
+};
+
+export const completeReminder = async (req: Request, res: Response, next: NextFunction, db: DatabaseClient) => {
+  const { id } = req.params;
+  const user = (req as any).user;
+  
+  const reminder = await db.queryOne('SELECT * FROM reminders WHERE id = $1 AND user_id = $2', [id, user.id]);
+  if (!reminder) return res.status(404).json({ success: false, message: 'Not found' });
+  
+  if (reminder.recurrence_type === 'once') {
+    await db.query('UPDATE reminders SET is_active = false, updated_at = NOW() WHERE id = $1', [id]);
+  } else {
+    const nextTriggerAt = RemindersService.calculateNextTrigger({
+      startAt: new Date(reminder.start_at),
+      recurrenceType: reminder.recurrence_type,
+      recurrenceInterval: reminder.recurrence_interval,
+      timezone: reminder.timezone
+    });
+    await db.query('UPDATE reminders SET next_trigger_at = $1, updated_at = NOW() WHERE id = $2', [nextTriggerAt, id]);
+  }
+  
+  res.json({ success: true, message: 'Marked as completed' });
 };

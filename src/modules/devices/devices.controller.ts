@@ -10,6 +10,15 @@ export const deviceSchema = {
   })
 };
 
+export const getDevices = async (req: Request, res: Response, next: NextFunction, db: DatabaseClient) => {
+  const user = (req as any).user;
+  const devices = await db.queryAll(
+    'SELECT * FROM devices WHERE user_id = $1 ORDER BY updated_at DESC',
+    [user.id]
+  );
+  res.json({ success: true, data: devices });
+};
+
 export const registerDevice = async (req: Request, res: Response, next: NextFunction, db: DatabaseClient) => {
   const { fcmToken, browser, os } = req.body;
   const user = (req as any).user;
