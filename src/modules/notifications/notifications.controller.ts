@@ -45,11 +45,12 @@ export const testNotification = async (req: Request, res: Response, next: NextFu
   const tokens = devices.map(d => d.fcm_token);
   const message: any = {
     tokens,
-    webpush: {
-      notification: {
-        title: 'Test Notification',
-        body: 'If you see this, notifications are working!',
-      },
+    data: {
+      title: 'Test Notification',
+      body: 'If you see this, notifications are working!',
+      icon: '',
+      image: '',
+      link: '/app/settings'
     },
   };
 
@@ -92,21 +93,13 @@ export const testReminderNotification = async (req: Request, res: Response, next
   const tokens = devices.map(d => d.fcm_token);
   const message: any = {
     tokens,
-    webpush: {
-      notification: {
-        title: `🔔 ${reminder.title}`,
-        body: reminder.message || 'Time for your reminder!',
-        icon: reminder.icon_url || undefined,
-        image: reminder.icon_url || undefined,
-        actions: [
-          { action: 'complete', title: '✅ Mark Done' },
-          { action: 'snooze', title: '⏰ Snooze 15m' }
-        ],
-        data: {
-          reminderId: id
-        }
-      },
-      fcmOptions: { link: `/app/reminders/${id}` },
+    data: {
+      title: `🔔 ${reminder.title}`,
+      body: reminder.message || 'Time for your reminder!',
+      icon: reminder.icon_url || '',
+      image: reminder.icon_url || '',
+      reminderId: id,
+      link: `/app/reminders/${id}`
     },
   };
 

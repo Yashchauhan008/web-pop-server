@@ -38,13 +38,18 @@ export const initScheduler = () => {
           [nextTriggerAt, reminder.id]
         );
 
-        // Then add to queue
+        // Then add to queue with a unique ID to prevent duplicates
+        const jobId = `reminder-${reminder.id}-${dayjs(reminder.next_trigger_at).unix()}`;
         await reminderQueue.add('send-notification', {
           reminderId: reminder.id,
           userId: reminder.user_id,
           title: reminder.title,
           message: reminder.message,
           icon: reminder.icon_url,
+        }, { 
+          jobId,
+          removeOnComplete: true,
+          removeOnFail: true
         });
       }
     } catch (error) {

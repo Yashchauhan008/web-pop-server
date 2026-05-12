@@ -19,14 +19,13 @@ export const initWorker = () => {
           // 2. Send multicast notification
           const response = await admin.messaging().sendEachForMulticast({
             tokens,
-            webpush: {
-              notification: {
-                title,
-                body: message || '',
-                icon: icon || undefined,
-                image: icon || undefined,
-              },
-              fcmOptions: { link: '/' },
+            data: {
+              title,
+              body: message || '',
+              icon: icon || '',
+              image: icon || '', // User specifically wants the image
+              reminderId: reminderId,
+              link: `/app/reminders/${reminderId}`
             },
           });
 

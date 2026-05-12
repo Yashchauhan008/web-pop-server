@@ -30,7 +30,8 @@ CREATE TABLE public.devices (
     os text,
     user_id uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    nickname text
 );
 
 
@@ -310,4 +311,6 @@ INSERT INTO public.schema_migrations (version) VALUES
     ('20260213214937'),
     ('20260506000000'),
     ('20260506071710'),
-    ('20260506084800');
+    ('20260506084800'),
+    ('20260506130500'),
+    ('20260512120000');
