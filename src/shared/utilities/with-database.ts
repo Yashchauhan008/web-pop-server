@@ -5,13 +5,14 @@ import type { DatabaseClient } from '@/shared/helpers/database.helper.js';
 
 function WithDatabase(controller: (req: Request, res: Response, next: NextFunction, db: DatabaseClient) => Promise<any>) {
     return async (req: Request, res: Response, next: NextFunction) => {
-        const db = await Database.getConnection();
+        let db: DatabaseClient | null = null;
         try {
+            db = await Database.getConnection();
             await controller(req, res, next, db);
         } catch (error) {
             next(error);
         } finally {
-            db.release();
+            if (db) db.release();
         }
     };
 }

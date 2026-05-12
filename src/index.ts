@@ -7,9 +7,18 @@ import Socket from '@/socket.js';
 
 const server = http.createServer(app);
 
-Socket.init(server);
+const startServer = async () => {
+    try {
+        await Socket.init(server);
+        
+        server.listen(env.PORT, () => {
+            Logger.info(`Server is running on port ${env.PORT} in ${env.ENV} mode`);
+        });
+    } catch (error) {
+        Logger.error('Failed to start server:', error);
+        process.exit(1);
+    }
+};
 
-server.listen(env.PORT, () => {
-    Logger.info(`Server is running on port ${env.PORT} in ${env.ENV} mode`);
-});
+startServer();
 

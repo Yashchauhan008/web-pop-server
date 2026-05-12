@@ -19,9 +19,13 @@ export const initWorker = () => {
           // 2. Send multicast notification
           const response = await admin.messaging().sendEachForMulticast({
             tokens,
-            notification: { title, body: message || '' },
             webpush: {
-              notification: icon ? { icon, image: icon } : undefined,
+              notification: {
+                title,
+                body: message || '',
+                icon: icon || undefined,
+                image: icon || undefined,
+              },
               fcmOptions: { link: '/' },
             },
           });

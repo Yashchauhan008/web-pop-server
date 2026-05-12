@@ -43,12 +43,14 @@ export const testNotification = async (req: Request, res: Response, next: NextFu
   }
 
   const tokens = devices.map(d => d.fcm_token);
-  const message = {
-    notification: {
-      title: 'Test Notification',
-      body: 'If you see this, notifications are working!',
-    },
+  const message: any = {
     tokens,
+    webpush: {
+      notification: {
+        title: 'Test Notification',
+        body: 'If you see this, notifications are working!',
+      },
+    },
   };
 
   try {
@@ -88,14 +90,12 @@ export const testReminderNotification = async (req: Request, res: Response, next
   if (devices.length === 0) return res.status(400).json({ success: false, message: 'No registered devices' });
 
   const tokens = devices.map(d => d.fcm_token);
-  const message = {
-    notification: {
-      title: `🔔 ${reminder.title}`,
-      body: reminder.message || 'Time for your reminder!',
-    },
+  const message: any = {
     tokens,
     webpush: {
       notification: {
+        title: `🔔 ${reminder.title}`,
+        body: reminder.message || 'Time for your reminder!',
         icon: reminder.icon_url || undefined,
         image: reminder.icon_url || undefined,
         actions: [

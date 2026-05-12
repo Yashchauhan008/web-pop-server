@@ -53,6 +53,7 @@ const consoleFormate = {
 const consoleLogOptions = {
     level: env.CONSOLE_LOG_LEVEL,
     handleExceptions: true,
+    handleRejections: true,
     format: combine(TS, env.ENV === 'development' ? colorize() : uncolorize(), consoleFormate.pretty),
 };
 

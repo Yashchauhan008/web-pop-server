@@ -14,6 +14,10 @@ import {
     Controller as loginUser,
     ValidationSchema as loginUserValidationSchema,
 } from '@/modules/auth/controllers/login-user.js';
+import {
+    Controller as googleLogin,
+    ValidationSchema as googleLoginValidationSchema,
+} from '@/modules/auth/controllers/google-login.js';
 
 const router = Router();
 
@@ -24,5 +28,6 @@ router
     .post(validate(verifyRegistrationValidationSchema), withDatabase(verifyRegistration));
 
 router.route('/login').post(validate(loginUserValidationSchema), withDatabase(loginUser));
+router.route('/google').post(validate(googleLoginValidationSchema), withDatabase(googleLogin));
 
 export default router;
